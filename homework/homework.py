@@ -4,6 +4,16 @@ Escriba el codigo que ejecute la accion solicitada.
 
 # pylint: disable=import-outside-toplevel
 
+import pandas as pd
+import zipfile
+import os
+from pathlib import Path
+
+ #crear rutas de input y output
+input_ruta='files/input/'
+output_ruta='files/output/'
+os.makedirs(output_ruta, exist_ok=True)
+
 
 def clean_campaign_data():
     """
@@ -49,6 +59,34 @@ def clean_campaign_data():
 
 
     """
+    #leer archivos csv.zip
+    data=[]
+
+    for file_name in os.listdir(input_ruta):
+        with zipfile.ZipFile(input_ruta+file_name, 'r') as z:
+            for csv_file in z.namelist():
+                with z.open(csv_file) as f:
+                    df=pd.read_csv(f)
+                    if 'client_id' in df.columns:
+                        data.append(df)
+
+    data_frame=pd.concat(data)
+
+    #Client.csv
+    data_frame['job']=data_frame['job'].str.replace('.','').str.replace('-','_')
+    data_frame['education']=data_frame['education'].str.replace('.','_').replace('unknown','pd.NA')
+    data_frame['credit_default']=data_frame['credit_default'].apply(lambda x: 1 if x=='yes' else 0)
+    data_frame['mortgage']=data_frame['mortgage'].apply(lambda x: 1 if x=='yes' else 0)
+    data_frame[['client_id','age','job','marital','education','credit_default','mortgage']].to_csv(output_ruta+'client.csv', index=False)
+
+    #Campaign.csv
+    data_frame['previous_outcome']=data_frame['previous_outcome'].apply(lambda x: 1 if x=='success' else 0)
+    data_frame['campaign_outcome']=data_frame['campaign_outcome'].apply(lambda x: 1 if x=='yes' else 0)
+    data_frame['last_contact_date'] = data_frame.apply(lambda row: pd.to_datetime(f"2022-{row['month']}-{row['day']}"), axis=1)
+    data_frame[['client_id','number_contacts','contact_duration','previous_campaign_contacts','previous_outcome','campaign_outcome','last_contact_date']].to_csv(output_ruta+'campaign.csv', index=False)
+
+    #Economics.csv
+    data_frame[['client_id','cons_price_idx','euribor_three_months']].to_csv(output_ruta+'economics.csv', index=False)
 
     return
 
